@@ -23,13 +23,19 @@ Built for teams that mix languages (Hindi/English, regional + English). Works fo
 ## Setup (4 steps, ~4 minutes)
 
 ### Step 1 — Download
-Click **Code → Download ZIP** on this page. Extract it anywhere — Desktop works great.
+Click **Code → Download ZIP** on this page. Extract the ZIP — it will create a folder called `meeting-notes-ai-main`.
+
+Move it somewhere permanent (Desktop is fine):
+```bash
+mv ~/Downloads/meeting-notes-ai-main ~/Desktop/meeting-notes-ai
+```
 
 ### Step 2 — Run setup
 
-Open Terminal, `cd` into the extracted folder, and run:
+Open Terminal and run:
 
 ```bash
+cd ~/Desktop/meeting-notes-ai
 ./setup.sh
 ```
 
@@ -40,6 +46,7 @@ This creates a virtual environment, installs packages, and asks for your API key
 ### Step 3 — Start the app
 
 ```bash
+cd ~/Desktop/meeting-notes-ai
 ./start.sh
 ```
 
