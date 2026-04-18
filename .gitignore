@@ -1,0 +1,15 @@
+# Environment — contains your API keys, never commit this
+.env
+
+# Saved meetings — your audio and notes stay on your machine
+meetings/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+
+# Notion DB info (auto-generated, contains your DB IDs)
+notion_db_info.json

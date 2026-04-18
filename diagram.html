@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1200">
+<title>Meeting Notes AI — Pipeline Diagram</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0f;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    width: 1200px;
+    min-height: 630px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .canvas {
+    width: 1200px;
+    min-height: 630px;
+    background: #0a0a0f;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 38px 48px 32px;
+  }
+
+  /* Subtle dot-grid background */
+  .canvas::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(99,102,241,0.18) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Ambient glow blobs */
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .blob-tl  { width: 480px; height: 360px; background: #4f46e5; opacity: 0.10; top: -120px; left: -140px; }
+  .blob-br  { width: 400px; height: 320px; background: #0891b2; opacity: 0.10; bottom: -80px;  right: -100px; }
+  .blob-mid { width: 320px; height: 320px; background: #7c3aed; opacity: 0.08; top: 260px; left: 50%; transform: translateX(-50%); }
+
+  /* ── Header ────────────────────────────────── */
+  .header {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(99,102,241,0.10);
+    border: 1px solid rgba(99,102,241,0.28);
+    border-radius: 100px;
+    padding: 4px 14px 4px 10px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: #818cf8;
+    margin-bottom: 14px;
+  }
+
+  .badge-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #6366f1;
+    box-shadow: 0 0 6px #6366f1;
+  }
+
+  .title {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    background: linear-gradient(130deg, #fff 20%, #c7d2fe 60%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+    margin-bottom: 10px;
+  }
+
+  .tagline {
+    font-size: 12.5px;
+    color: #6b7280;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .tagline .step  { color: #9ca3af; }
+  .tagline .arrow { color: #374151; margin: 0 7px; }
+
+  /* ── Pipeline shell ────────────────────────── */
+  .pipeline {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  /* ── Cards ─────────────────────────────────── */
+  .card {
+    border-radius: 14px;
+    padding: 14px 18px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    text-align: center;
+    position: relative;
+  }
+
+  .card-voice   { background: linear-gradient(145deg,rgba(16,185,129,.13),rgba(5,150,105,.07));  border:1px solid rgba(16,185,129,.32); width:200px; }
+  .card-browser { background: linear-gradient(145deg,rgba(59,130,246,.13),rgba(37,99,235,.07));  border:1px solid rgba(59,130,246,.32); width:200px; }
+  .card-sarvam  { background: linear-gradient(145deg,rgba(245,158,11,.13),rgba(217,119,6,.07));   border:1px solid rgba(245,158,11,.38); width:224px; }
+  .card-claude  { background: linear-gradient(145deg,rgba(139,92,246,.16),rgba(109,40,217,.08));  border:1px solid rgba(139,92,246,.42); width:244px; }
+  .card-notes   { background: linear-gradient(145deg,rgba(6,182,212,.13),rgba(8,145,178,.07));    border:1px solid rgba(6,182,212,.32);  width:194px; }
+  .card-notion  { background: linear-gradient(145deg,rgba(244,63,94,.13),rgba(225,29,72,.07));    border:1px solid rgba(244,63,94,.32);  width:200px; }
+
+  /* Subtle inner glow on AI cards */
+  .card-sarvam::before,
+  .card-claude::before {
+    content:'';
+    position:absolute;
+    inset:0;
+    border-radius:14px;
+    background: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.04) 0%, transparent 70%);
+    pointer-events:none;
+  }
+
+  .card-icon  { font-size:26px; line-height:1; margin-bottom:1px; }
+  .card-title { font-size:13.5px; font-weight:700; color:#f3f4f6; letter-spacing:-0.01em; }
+
+  .card-sub {
+    font-size:11px;
+    color:#9ca3af;
+    font-weight:500;
+    line-height:1.55;
+  }
+  .card-sub strong { color:#d1d5db; font-weight:600; }
+
+  /* Pill tags */
+  .tags { display:flex; flex-wrap:wrap; gap:4px; justify-content:center; margin-top:3px; }
+  .tag  { font-size:9.5px; font-weight:700; padding:2px 9px; border-radius:100px; letter-spacing:0.025em; }
+
+  .tg  { background:rgba(16,185,129,.14); color:#6ee7b7; border:1px solid rgba(16,185,129,.22); }
+  .tb  { background:rgba(59,130,246,.14);  color:#93c5fd; border:1px solid rgba(59,130,246,.22); }
+  .ta  { background:rgba(245,158,11,.14);  color:#fcd34d; border:1px solid rgba(245,158,11,.22); }
+  .tp  { background:rgba(139,92,246,.14);  color:#c4b5fd; border:1px solid rgba(139,92,246,.22); }
+  .tc  { background:rgba(6,182,212,.14);   color:#67e8f9; border:1px solid rgba(6,182,212,.22); }
+  .tr  { background:rgba(244,63,94,.14);   color:#fda4af; border:1px solid rgba(244,63,94,.22); }
+
+  /* Bullet list inside card */
+  .card-list {
+    list-style:none;
+    text-align:left;
+    font-size:10.5px;
+    color:#9ca3af;
+    line-height:1.85;
+    margin-top:2px;
+    align-self:center;
+  }
+  .card-list li::before { content:'·'; margin-right:5px; color:#4b5563; font-weight:700; }
+
+  /* BYOK pill */
+  .byok {
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    background:rgba(255,255,255,.035);
+    border:1px solid rgba(255,255,255,.09);
+    border-radius:100px;
+    padding:3px 10px;
+    font-size:10px;
+    font-weight:600;
+    color:#4b5563;
+    margin-top:6px;
+    letter-spacing:0.03em;
+  }
+
+  /* ── Vertical arrows ────────────────────────── */
+  .arr {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    height:34px;
+    flex-shrink:0;
+  }
+  .arr-line {
+    width:2px;
+    flex:1;
+    background:linear-gradient(180deg,rgba(99,102,241,.55) 0%,rgba(99,102,241,.25) 100%);
+  }
+  .arr-head {
+    width:0; height:0;
+    border-left:5px solid transparent;
+    border-right:5px solid transparent;
+    border-top:7px solid rgba(99,102,241,.65);
+  }
+
+  /* ── Split section ──────────────────────────── */
+  /*
+    The two output cards are 194px and 200px wide, with a 44px gap between them.
+    Total output row width = 194 + 44 + 200 = 438px
+    Center of left card  = 194/2 = 97px from left edge of output-row
+    Center of right card = 194 + 44 + 200/2 = 338px from left edge of output-row
+
+    The SVG is 438px wide.
+    Mid-point of SVG = 219px  →  branch left at x=97, branch right at x=338
+  */
+  .split-section {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    width:438px;  /* matches output-row total width */
+  }
+
+  .split-stem {
+    width:2px;
+    height:24px;
+    background:linear-gradient(180deg,rgba(99,102,241,.55),rgba(99,102,241,.25));
+  }
+
+  .split-svg { display:block; overflow:visible; }
+
+  .output-row {
+    display:flex;
+    align-items:flex-start;
+    gap:44px;
+  }
+
+  /* ── Footer ─────────────────────────────────── */
+  .footer {
+    position:relative;
+    z-index:1;
+    margin-top:22px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    width:100%;
+    border-top:1px solid rgba(255,255,255,.05);
+    padding-top:14px;
+  }
+
+  .footer-gh {
+    font-size:11px;
+    color:#374151;
+    font-weight:500;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    letter-spacing:0.01em;
+  }
+
+  .footer-stack {
+    display:flex;
+    align-items:center;
+    gap:20px;
+  }
+
+  .fchip {
+    display:flex;
+    align-items:center;
+    gap:5px;
+    font-size:10px;
+    font-weight:600;
+    color:#374151;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+  }
+
+  .fdot {
+    width:6px; height:6px;
+    border-radius:50%;
+  }
+  .fdot-g { background:#10b981; box-shadow:0 0 5px #10b981; }
+  .fdot-p { background:#8b5cf6; box-shadow:0 0 5px #8b5cf6; }
+  .fdot-a { background:#f59e0b; box-shadow:0 0 5px #f59e0b; }
+</style>
+</head>
+<body>
+<div class="canvas">
+
+  <!-- Ambient blobs -->
+  <div class="blob blob-tl"></div>
+  <div class="blob blob-br"></div>
+  <div class="blob blob-mid"></div>
+
+  <!-- ── Header ── -->
+  <div class="header">
+    <div class="badge">
+      <div class="badge-dot"></div>
+      Open Source &nbsp;·&nbsp; Hinglish-First &nbsp;·&nbsp; BYOK
+    </div>
+    <div class="title">Meeting Notes AI</div>
+    <div class="tagline">
+      <span class="step">Record</span><span class="arrow">→</span>
+      <span class="step">Transcribe</span><span class="arrow">→</span>
+      <span class="step">Summarize</span><span class="arrow">→</span>
+      <span class="step">Notion</span>
+    </div>
+  </div>
+
+  <!-- ── Pipeline ── -->
+  <div class="pipeline">
+
+    <!-- 1 · Voice -->
+    <div class="card card-voice">
+      <div class="card-icon">🎙️</div>
+      <div class="card-title">Your Voice</div>
+      <div class="card-sub">Speak naturally in <strong>Hindi, English, or Hinglish</strong></div>
+      <div class="tags"><span class="tag tg">Any language</span><span class="tag tg">No setup needed</span></div>
+    </div>
+
+    <div class="arr"><div class="arr-line"></div><div class="arr-head"></div></div>
+
+    <!-- 2 · Browser Recording -->
+    <div class="card card-browser">
+      <div class="card-icon">🌐</div>
+      <div class="card-title">Browser Recording</div>
+      <div class="card-sub">Splits into <strong>55-min chunks</strong> automatically<br>Works through meetings of any length</div>
+      <div class="tags"><span class="tag tb">MediaRecorder API</span><span class="tag tb">WebM</span><span class="tag tb">Or upload audio</span></div>
+    </div>
+
+    <div class="arr"><div class="arr-line"></div><div class="arr-head"></div></div>
+
+    <!-- 3 · Sarvam AI -->
+    <div class="card card-sarvam">
+      <div class="card-icon">🔊</div>
+      <div class="card-title">Sarvam AI &nbsp;·&nbsp; saaras:v3</div>
+      <div class="card-sub"><strong>Hinglish → English</strong> transcription<br>Handles mid-sentence code-switching</div>
+      <div class="tags"><span class="tag ta">Speech-to-Text</span><span class="tag ta">Code-switching</span></div>
+      <div class="byok">
+        <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+          <rect x="2" y="5.5" width="8" height="5" rx="1" stroke="#4b5563" stroke-width="1.2"/>
+          <path d="M4.2 5.5V3.8a1.8 1.8 0 013.6 0v1.7" stroke="#4b5563" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        your API key &nbsp;·&nbsp; your data
+      </div>
+    </div>
+
+    <div class="arr"><div class="arr-line"></div><div class="arr-head"></div></div>
+
+    <!-- 4 · Claude -->
+    <div class="card card-claude">
+      <div class="card-icon">✦</div>
+      <div class="card-title">Claude claude-sonnet-4</div>
+      <div class="card-sub">Structured notes via <strong>context.md</strong> system prompt</div>
+      <div class="tags"><span class="tag tp">LLM</span><span class="tag tp">Anthropic</span><span class="tag tp">Structured output</span></div>
+      <ul class="card-list">
+        <li>Discussion &amp; decisions</li>
+        <li>Teaching moments</li>
+        <li>Action items table</li>
+      </ul>
+      <div class="byok">
+        <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+          <rect x="2" y="5.5" width="8" height="5" rx="1" stroke="#4b5563" stroke-width="1.2"/>
+          <path d="M4.2 5.5V3.8a1.8 1.8 0 013.6 0v1.7" stroke="#4b5563" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        your API key &nbsp;·&nbsp; your data
+      </div>
+    </div>
+
+    <!-- Split stem + Y-branch SVG -->
+    <div class="split-section">
+      <div class="split-stem"></div>
+
+      <!--
+        SVG canvas: 438 × 52
+        Center X = 219
+        Left card center  = 97   (194px card, left edge at 0)
+        Right card center = 341  (200px card, right edge at 438, center at 438-100=338 → actually 194+44+100=338)
+        Using 97 and 338 for symmetry with actual card widths.
+      -->
+      <svg class="split-svg" width="438" height="52" viewBox="0 0 438 52">
+        <defs>
+          <marker id="ah-l" markerWidth="7" markerHeight="7" refX="3.5" refY="3.5" orient="90">
+            <polygon points="0,0 7,3.5 0,7" fill="rgba(6,182,212,0.75)"/>
+          </marker>
+          <marker id="ah-r" markerWidth="7" markerHeight="7" refX="3.5" refY="3.5" orient="90">
+            <polygon points="0,0 7,3.5 0,7" fill="rgba(244,63,94,0.75)"/>
+          </marker>
+        </defs>
+
+        <!-- split dot at top-centre -->
+        <circle cx="219" cy="1" r="4.5" fill="#6366f1" opacity="0.85"/>
+
+        <!-- left branch: centre → left, then down -->
+        <path d="M219 1 L219 18 L97 18 L97 46"
+              stroke="rgba(99,102,241,0.5)" stroke-width="2"
+              fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- left arrowhead -->
+        <polygon points="91,44 97,54 103,44" fill="rgba(6,182,212,0.75)"/>
+
+        <!-- right branch: centre → right, then down -->
+        <path d="M219 1 L219 18 L338 18 L338 46"
+              stroke="rgba(99,102,241,0.5)" stroke-width="2"
+              fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- right arrowhead -->
+        <polygon points="332,44 338,54 344,44" fill="rgba(244,63,94,0.75)"/>
+      </svg>
+
+      <!-- Output row -->
+      <div class="output-row">
+
+        <!-- Notes / Browser UI -->
+        <div class="card card-notes">
+          <div class="card-icon">📝</div>
+          <div class="card-title">Browser UI</div>
+          <div class="card-sub"><strong>Live notes</strong> in your browser</div>
+          <ul class="card-list">
+            <li>Edit &amp; export</li>
+            <li>Browse past meetings</li>
+            <li>Upload audio files</li>
+          </ul>
+          <div class="tags" style="margin-top:4px;">
+            <span class="tag tc">Instant</span>
+          </div>
+        </div>
+
+        <!-- Notion -->
+        <div class="card card-notion">
+          <div class="card-icon">📤</div>
+          <div class="card-title">Notion</div>
+          <div class="card-sub"><strong>Meetings DB</strong> + Action Items DB</div>
+          <ul class="card-list">
+            <li>Linked databases</li>
+            <li>Filter by owner</li>
+            <li>Filter by date</li>
+          </ul>
+          <div class="tags" style="margin-top:4px;">
+            <span class="tag tr">Auto-sync</span>
+          </div>
+        </div>
+
+      </div><!-- .output-row -->
+    </div><!-- .split-section -->
+
+  </div><!-- .pipeline -->
+
+  <!-- ── Footer ── -->
+  <div class="footer">
+    <div class="footer-gh">github.com/Mayank-AG/meeting-notes-ai &nbsp;·&nbsp; 🔒 Everything stays on your Mac · saved to <code style="font-size:10px;opacity:0.8">meeting-notes-ai/meetings/</code></div>
+    <div class="footer-stack">
+      <div class="fchip"><div class="fdot fdot-g"></div>Sarvam AI</div>
+      <div class="fchip"><div class="fdot fdot-p"></div>Claude claude-sonnet-4</div>
+      <div class="fchip"><div class="fdot fdot-a"></div>Notion API</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
