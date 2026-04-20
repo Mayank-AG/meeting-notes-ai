@@ -27,6 +27,7 @@ Click **Code → Download ZIP** on this page. Extract the ZIP wherever you like 
 
 ### Step 2 — Run setup
 
+**Mac:**
 Open **Terminal**, then **drag the extracted folder** into the Terminal window — it fills in the path automatically. Press Enter, then run:
 
 ```bash
@@ -35,17 +36,33 @@ Open **Terminal**, then **drag the extracted folder** into the Terminal window �
 
 This creates a virtual environment, installs packages, and asks for your API keys. Takes about 2 minutes.
 
-> **Windows?** Install [Python](https://python.org/downloads) + run `python -m venv venv && venv\Scripts\activate && pip install -r requirements.txt` then copy `.env.example` to `.env` and fill in your keys.
+**Windows:**
+The `.sh` scripts don't run natively on Windows. Two options:
+
+- **Option A — WSL (recommended):** Install [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) (run `wsl --install` in PowerShell as admin, restart). Then open the Ubuntu terminal, navigate to the folder, and run `./setup.sh` exactly like Mac.
+- **Option B — Manual:** Install [Python 3](https://python.org/downloads) (check "Add to PATH"). Open Command Prompt in the extracted folder and run:
+  ```
+  python -m venv venv
+  venv\Scripts\activate
+  pip install -r requirements.txt
+  copy .env.example .env
+  ```
+  Then edit `.env` with your keys, and start the app with `python app.py`.
 
 ### Step 3 — Start the app
 
-Open Terminal, drag the folder in again, press Enter, then:
+**Mac:** Open Terminal, drag the folder in again, press Enter, then:
 
 ```bash
 ./start.sh
 ```
 
-Browser opens automatically. If your keys aren't set yet, the app opens a **Setup screen** — follow the step-by-step instructions there to add your keys. No manual file editing needed.
+**Windows (WSL):** Same as above inside the Ubuntu terminal.
+**Windows (manual):** `venv\Scripts\activate` then `python app.py`.
+
+Browser opens automatically (Mac/WSL). If not, go to `http://localhost:8000` manually.
+
+If your keys aren't set yet, the app opens a **Setup screen** — follow the step-by-step instructions there to add your keys. No manual file editing needed.
 
 ### Step 4 — Customise for your team
 
