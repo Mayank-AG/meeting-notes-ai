@@ -62,6 +62,7 @@
   .btn:active{transform:scale(0.97)}
   .bg{background:var(--green)}.bb{background:var(--blue)}.bp{background:var(--purple)}
   .by{background:var(--s2);color:var(--t2)}.bo{background:var(--orange)}
+  .btn-notion-off{background:var(--s2);color:var(--t2);opacity:0.6;cursor:pointer;border:1px dashed var(--bdr)}
   .info{font-size:0.7rem;color:var(--t2);margin-bottom:0.5rem}
   .tabs{display:flex;gap:1px}
   .tab{padding:0.4rem 1rem;border:1px solid var(--bdr);border-bottom:none;border-radius:8px 8px 0 0;
@@ -83,8 +84,10 @@
   .err h3{color:var(--red);margin:0.5rem 0 0.3rem}
   .err p{color:var(--t2);font-size:0.82rem;max-width:400px;margin:0 auto 1rem}
   .toast{position:fixed;top:1rem;right:1rem;background:var(--green);color:white;padding:0.5rem 0.9rem;
-    border-radius:8px;font-size:0.8rem;font-weight:600;transform:translateY(-80px);opacity:0;transition:all 0.3s;z-index:100}
+    border-radius:8px;font-size:0.8rem;font-weight:600;transform:translateY(-80px);opacity:0;transition:all 0.3s;z-index:100;max-width:320px;line-height:1.4}
   .toast.show{transform:translateY(0);opacity:1}
+  .toast.err{background:var(--red)}
+  .toast.warn{background:var(--amber);color:#1a1a1a}
   .ftr{text-align:center;padding:1rem;color:var(--t2);font-size:0.6rem;opacity:0.3}
 
   /* ── Pre-meeting Context Card ────────────────────────────── */
@@ -224,7 +227,7 @@
 <div id="v-res" class="results" style="display:none">
   <div class="bar">
     <button class="btn bg" onclick="copyRich()">📋 Copy for Slack</button>
-    <button class="btn bb" id="btn-notion" onclick="pushNotion()" style="display:none">📤 Push to Notion</button>
+    <button class="btn btn-notion-off" id="btn-notion" onclick="pushNotion()">📤 Push to Notion</button>
     <button class="btn by" onclick="showTab('e')">✏️ Edit</button>
     <button class="btn by" onclick="exportHTML()">💾 Export</button>
     <button class="btn by" onclick="copyTranscript()">🎙️ Transcript</button>
@@ -426,7 +429,9 @@ async function init(){
     }
     // Config for notion button
     const cr=await fetch('/config');config=await cr.json();
-    if(config.notion_enabled)document.getElementById('btn-notion').style.display='';
+    const nb=document.getElementById('btn-notion');
+    if(config.notion_enabled){nb.className='btn bb';nb.title=''}
+    else{nb.className='btn btn-notion-off';nb.title='Notion not set up — click to add keys'}
   }catch(e){console.error('Init failed:',e)}
 }
 init();
@@ -578,14 +583,25 @@ async function copyRich(){
 async function copyTranscript(){await navigator.clipboard.writeText(transText);toast('Transcript copied!')}
 
 async function pushNotion(){
+  if(!config.notion_enabled){
+    // Open setup → API Keys tab so user can add Notion credentials
+    openSetup();switchSetupTab('keys');
+    // Scroll to Notion section
+    setTimeout(()=>{const el=document.getElementById('notion-steps')?.closest('.key-section');if(el)el.scrollIntoView({behavior:'smooth',block:'center'})},200);
+    showToast('Notion keys not set — add them in ⚙️ Setup → API Keys','err');
+    return;
+  }
   toast('Pushing to Notion...');
   try{
     const r=await fetch('/push-notion',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({notes:notesText,others:[]})});
     const d=await r.json();
-    if(d.success){toast('✅ Published to Notion!');if(d.url)window.open(d.url,'_blank')}
-    else toast('❌ '+d.error);
-  }catch(e){toast('❌ '+e.message)}
+    if(d.success){
+      toast('✅ Published to Notion!');
+      if(d.warning)setTimeout(()=>showToast('⚠️ '+d.warning,'warn'),2700);
+      if(d.url)window.open(d.url,'_blank');
+    } else showToast('❌ '+d.error,'err');
+  }catch(e){showToast('❌ '+e.message,'err')}
 }
 
 function exportHTML(){
@@ -752,7 +768,8 @@ function updTimer(){const m=Math.floor(sec/60).toString().padStart(2,'0'),s=(sec
 function updCI(){const c=document.getElementById('ci');c.style.display='';c.textContent=savedC>0?`Chunk ${savedC+1} (${savedC} saved)`:'Recording...'}
 function setPS(t,d){document.getElementById('ps-t').textContent=t;document.getElementById('ps-d').textContent=d||''}
 function showErr(m){document.getElementById('em').textContent=m;show('err')}
-function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
+function toast(m){showToast(m,'ok')}
+function showToast(m,type='ok'){const t=document.getElementById('toast');t.textContent=m;t.className='toast '+(type==='err'?'err':type==='warn'?'warn':'');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),type==='err'?4000:2500)}
 
 function resetAll(){
   rec=null;chunks=[];savedC=0;sec=0;notesText='';transText='';
