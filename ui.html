@@ -87,6 +87,18 @@
   .toast.show{transform:translateY(0);opacity:1}
   .ftr{text-align:center;padding:1rem;color:var(--t2);font-size:0.6rem;opacity:0.3}
 
+  /* ── Pre-meeting Context Card ────────────────────────────── */
+  .ctx-card{background:var(--s1);border:1px solid var(--bdr);border-radius:10px;padding:0.75rem;
+    width:100%;max-width:400px;margin-bottom:0.25rem}
+  .ctx-card h4{font-size:0.7rem;color:var(--t2);font-weight:700;text-transform:uppercase;
+    letter-spacing:0.05em;margin-bottom:0.5rem}
+  .ctx-input{width:100%;background:var(--s2);color:var(--t1);border:1px solid var(--bdr);
+    border-radius:7px;padding:0.45rem 0.65rem;font-family:inherit;font-size:0.82rem;
+    outline:none;margin-bottom:0.4rem;transition:border-color 0.2s}
+  .ctx-input:last-of-type{margin-bottom:0}
+  .ctx-input:focus{border-color:var(--blue)}
+  .ctx-input::placeholder{color:var(--t2)}
+
   /* ── Setup Panel ──────────────────────────────────────────── */
   .setup-panel{padding-top:0.5rem}
   .setup-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.5rem}
@@ -171,6 +183,11 @@
 <!-- RECORD VIEW -->
 <div id="v-rec">
   <div class="rec-area">
+    <div class="ctx-card" id="ctx-card">
+      <h4>Meeting context <span style="font-weight:400;opacity:0.6">(optional)</span></h4>
+      <input class="ctx-input" id="ctx-topic" type="text" placeholder="What's this meeting about?" maxlength="300" autocomplete="off">
+      <input class="ctx-input" id="ctx-people" type="text" placeholder="Who's in the meeting? (names, roles)" maxlength="300" autocomplete="off">
+    </div>
     <button class="mic" id="mic" onclick="toggle()">
       <div class="pulse"></div>
       <svg id="i-mic" viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm-1-9c0-.55.45-1 1-1s1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V5zm6 6c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
@@ -421,6 +438,15 @@ async function toggle(){
 async function startRec(){
   try{
     stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    // Send pre-meeting context before starting
+    const topic=document.getElementById('ctx-topic').value.trim();
+    const people=document.getElementById('ctx-people').value.trim();
+    if(topic||people){
+      try{await fetch('/set-meta',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({topic,participants:people})})}catch(e){}
+    }
+    // Hide context card while recording
+    document.getElementById('ctx-card').style.display='none';
     beginRec();sec=0;savedC=0;updTimer();
     ti=setInterval(()=>{sec++;updTimer();if((sec-savedC*CHUNK_SEC)>=CHUNK_SEC)autoChunk()},1000);
     document.getElementById('mic').classList.add('on');
@@ -493,6 +519,13 @@ async function processChunks(){
 async function onUpload(e){
   const files=Array.from(e.target.files);
   if(!files.length)return;
+  // Send pre-meeting context for uploads too
+  const topic=document.getElementById('ctx-topic').value.trim();
+  const people=document.getElementById('ctx-people').value.trim();
+  if(topic||people){
+    try{await fetch('/set-meta',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({topic,participants:people})})}catch(e){}
+  }
   show('proc');
   if(files.length===1){
     setPS('Processing uploaded file...','Transcribing with Sarvam AI');
@@ -726,6 +759,10 @@ function resetAll(){
   document.getElementById('ci').style.display='none';
   document.getElementById('lbl').textContent='Tap to start recording';
   document.getElementById('fu').value='';
+  // Restore context card for next meeting
+  document.getElementById('ctx-card').style.display='';
+  document.getElementById('ctx-topic').value='';
+  document.getElementById('ctx-people').value='';
   show('rec');
 }
 

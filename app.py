@@ -339,7 +339,7 @@ async def process_audio(audio: UploadFile = File(...)):
 
         # Summarise
         print(f"🧠 Generating notes...")
-        notes = await generate_notes(transcript)
+        notes = await generate_notes(transcript, meta)
         (meeting_dir / "notes.md").write_text(notes, encoding="utf-8")
         print(f"✅ Notes: {len(notes)} chars")
 
@@ -395,7 +395,7 @@ async def process_chunks():
         for i, t in enumerate(transcripts):
             (meeting_dir / f"transcript_chunk_{i+1:02d}.txt").write_text(t, encoding="utf-8")
 
-        notes = await generate_notes(combined)
+        notes = await generate_notes(combined, meta)
         (meeting_dir / "notes.md").write_text(notes, encoding="utf-8")
         json.dump(meta, open(meeting_dir / "meta.json", "w"), indent=2)
 
@@ -410,35 +410,59 @@ async def process_chunks():
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 # ─── Notion Push ──────────────────────────────────────────────
+async def _get_db_title_prop(client: httpx.AsyncClient, headers: dict) -> str:
+    """Return the name of the title-type property in the Meetings DB (usually 'Meeting' or 'Name')."""
+    try:
+        r = await client.get(f"https://api.notion.com/v1/databases/{NOTION_DB_ID}", headers=headers)
+        if r.is_success:
+            props = r.json().get("properties", {})
+            for name, schema in props.items():
+                if schema.get("type") == "title":
+                    return name
+    except Exception:
+        pass
+    return "Meeting"  # sensible default
+
 async def _push_meeting_to_notion(notes: str, title: str, participant: str, meeting_type: str, others: list) -> dict:
     """Internal: push meeting notes to Notion Meetings DB. Returns {success, url, page_id}."""
     summary = parse_meeting_meta(notes).get("summary", "")[:2000]
     blocks = md_to_notion_blocks(notes)
-    page = {
-        "parent": {"database_id": NOTION_DB_ID},
-        "icon": {"emoji": "📝"},
-        "properties": {
-            "Meeting": {"title": [{"text": {"content": title[:100]}}]},
-            "Date": {"date": {"start": datetime.now().strftime("%Y-%m-%d")}},
-            "Summary": {"rich_text": [{"text": {"content": summary}}]},
-        },
-        "children": blocks[:100],
-    }
-    if participant:
-        page["properties"]["Participant"] = {"select": {"name": participant}}
-    if meeting_type:
-        page["properties"]["Type"] = {"select": {"name": meeting_type}}
-    if others:
-        page["properties"]["Other Attendees"] = {"multi_select": [{"name": n} for n in others]}
+    headers = {"Authorization": f"Bearer {NOTION_KEY}", "Content-Type": "application/json", "Notion-Version": "2022-06-28"}
 
     async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post("https://api.notion.com/v1/pages",
-            headers={"Authorization": f"Bearer {NOTION_KEY}", "Content-Type": "application/json", "Notion-Version": "2022-06-28"},
-            json=page)
-        if not resp.is_success:
-            return {"success": False, "error": resp.text[:500]}
-        data = resp.json()
-        return {"success": True, "url": data.get("url", ""), "page_id": data.get("id", "")}
+        title_prop = await _get_db_title_prop(client, headers)
+
+        def build_page(full: bool) -> dict:
+            props = {title_prop: {"title": [{"text": {"content": title[:100]}}]}}
+            if full:
+                props["Date"] = {"date": {"start": datetime.now().strftime("%Y-%m-%d")}}
+                if summary:
+                    props["Summary"] = {"rich_text": [{"text": {"content": summary}}]}
+                if participant:
+                    props["Participant"] = {"select": {"name": participant}}
+                if meeting_type:
+                    props["Type"] = {"select": {"name": meeting_type}}
+                if others:
+                    props["Other Attendees"] = {"multi_select": [{"name": n} for n in others]}
+            return {"parent": {"database_id": NOTION_DB_ID}, "icon": {"emoji": "📝"},
+                    "properties": props, "children": blocks[:100]}
+
+        # First attempt: all properties
+        resp = await client.post("https://api.notion.com/v1/pages", headers=headers, json=build_page(full=True))
+        if resp.is_success:
+            data = resp.json()
+            return {"success": True, "url": data.get("url", ""), "page_id": data.get("id", "")}
+
+        # Second attempt: title only (column names in the DB may differ)
+        err = resp.text[:500]
+        print(f"⚠️  Notion full push failed ({resp.status_code}): {err[:120]}")
+        print("   Retrying with title-only push...")
+        resp2 = await client.post("https://api.notion.com/v1/pages", headers=headers, json=build_page(full=False))
+        if resp2.is_success:
+            data = resp2.json()
+            return {"success": True, "url": data.get("url", ""), "page_id": data.get("id", ""),
+                    "warning": "Some columns weren't found in your Meetings DB — only the title was saved. Check your DB column names match: Date, Summary, Participant, Type."}
+        return {"success": False, "error": resp2.text[:500]}
 
 @app.post("/push-notion")
 async def push_to_notion(request: dict):
@@ -653,17 +677,28 @@ async def _sarvam_batch(audio_bytes, filename) -> str:
         tp.unlink(missing_ok=True)
 
 # ─── Claude: Single-stage notes generation ──────────────────
-async def generate_notes(transcript: str) -> str:
-    """Single Claude call: system prompt (context.md) + transcript → notes."""
+async def generate_notes(transcript: str, meta: dict = None) -> str:
+    """Single Claude call: system prompt (context.md) + optional pre-meeting context + transcript → notes."""
     if not ANTHROPIC_API_KEY:
         raise Exception("Anthropic API key not set. Click ⚠️ Setup in the app to add it.")
     cl = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     print("   Generating notes...")
+    # Prepend any pre-meeting context the user typed before recording
+    prefix = ""
+    if meta:
+        topic = meta.get("topic", "").strip()
+        participants = meta.get("participants", "").strip()
+        if topic or participants:
+            lines = ["[Context provided by the organiser before recording:]"]
+            if topic:        lines.append(f"Topic/agenda: {topic}")
+            if participants: lines.append(f"Participants: {participants}")
+            prefix = "\n".join(lines) + "\n\n"
+    user_content = prefix + f"Meeting transcript:\n\n{transcript}"
     msg = cl.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=4096,
         system=load_system_prompt(),
-        messages=[{"role": "user", "content": f"Meeting transcript:\n\n{transcript}"}],
+        messages=[{"role": "user", "content": user_content}],
     )
     notes = "".join(b.text for b in msg.content if b.type == "text")
     return notes
