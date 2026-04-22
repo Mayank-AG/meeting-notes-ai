@@ -375,6 +375,10 @@
         The AI reads this file before every meeting to understand your team, your products, and your terminology.<br>
         <strong>Edit it once — it takes effect immediately, no restart needed.</strong>
       </div>
+      <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:8px;padding:0.6rem 0.85rem;margin-bottom:0.75rem;font-size:0.78rem;color:var(--amber);line-height:1.5">
+        ✏️ <strong>Only edit the <code style="font-size:0.75rem">## YOUR CONTEXT</code> section near the bottom.</strong><br>
+        The rules above it are Claude's instruction set — leave those as-is.
+      </div>
       <textarea class="ctx-textarea" id="ctx-editor" spellcheck="false" placeholder="Loading..."></textarea>
       <button class="save-ctx-btn" onclick="saveContext()">Save Context</button>
     </div>
