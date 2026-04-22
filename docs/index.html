@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meeting Notes AI — Record. Transcribe. Notes. Notion.</title>
+<meta name="description" content="Open-source meeting notes tool built for Indian teams. Records Hinglish meetings, generates structured notes with Claude, pushes to Notion automatically.">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --card: #111118;
+    --border: #1e1e2e;
+    --t1: #f0f0f8;
+    --t2: #8888a8;
+    --blue: #4a8cff;
+    --purple: #9b6dff;
+    --green: #22c55e;
+    --amber: #f59e0b;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--t1);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    line-height: 1.6;
+  }
+
+  /* ── Layout ── */
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 1.5rem; }
+
+  /* ── Hero ── */
+  .hero {
+    padding: 5rem 0 3.5rem;
+    text-align: center;
+    background: radial-gradient(ellipse 80% 40% at 50% 0%, rgba(74,140,255,0.08) 0%, transparent 70%);
+  }
+  .hero-badge {
+    display: inline-block;
+    background: rgba(74,140,255,0.1);
+    border: 1px solid rgba(74,140,255,0.25);
+    color: var(--blue);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.75rem;
+    border-radius: 20px;
+    margin-bottom: 1.25rem;
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #fff 30%, #9b6dff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+  }
+  .hero p {
+    font-size: 1.05rem;
+    color: var(--t2);
+    max-width: 520px;
+    margin: 0 auto 2rem;
+    line-height: 1.7;
+  }
+  .hero-btns { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+    color: white;
+    padding: 0.75rem 1.75rem;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: opacity 0.2s;
+    box-shadow: 0 4px 20px rgba(74,140,255,0.25);
+  }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-sec {
+    background: var(--card);
+    color: var(--t1);
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border: 1px solid var(--border);
+    transition: border-color 0.2s;
+  }
+  .btn-sec:hover { border-color: var(--t2); }
+
+  /* ── Pipeline ── */
+  .pipeline {
+    padding: 3rem 0;
+    border-top: 1px solid var(--border);
+  }
+  .section-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--t2);
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  .pipe-steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    flex-wrap: wrap;
+  }
+  .pipe-step {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    text-align: center;
+    min-width: 120px;
+    flex: 1;
+    max-width: 150px;
+  }
+  .pipe-icon { font-size: 1.5rem; margin-bottom: 0.4rem; }
+  .pipe-title { font-size: 0.78rem; font-weight: 700; color: var(--t1); }
+  .pipe-sub { font-size: 0.66rem; color: var(--t2); margin-top: 0.2rem; }
+  .pipe-arrow {
+    color: var(--border);
+    font-size: 1.2rem;
+    padding: 0 0.3rem;
+    flex-shrink: 0;
+  }
+  @media (max-width: 540px) {
+    .pipe-steps { flex-direction: column; gap: 0.4rem; }
+    .pipe-step { max-width: 100%; width: 100%; }
+    .pipe-arrow { transform: rotate(90deg); }
+  }
+
+  /* ── Features ── */
+  .features { padding: 3rem 0; border-top: 1px solid var(--border); }
+  .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+  .feat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+  .feat-icon { font-size: 1.3rem; margin-bottom: 0.5rem; }
+  .feat h3 { font-size: 0.88rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .feat p { font-size: 0.78rem; color: var(--t2); line-height: 1.5; }
+
+  /* ── Setup ── */
+  .setup { padding: 3rem 0; border-top: 1px solid var(--border); }
+  .steps { display: flex; flex-direction: column; gap: 1rem; margin-top: 1.5rem; }
+  .step { display: flex; gap: 1rem; align-items: flex-start; }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--blue), var(--purple));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.72rem; font-weight: 800; flex-shrink: 0; margin-top: 0.1rem;
+  }
+  .step-body h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.2rem; }
+  .step-body p { font-size: 0.8rem; color: var(--t2); }
+  code {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.1em 0.4em;
+    font-family: ui-monospace, monospace;
+    font-size: 0.82em;
+  }
+
+  /* ── Cost ── */
+  .cost { padding: 3rem 0; border-top: 1px solid var(--border); }
+  .cost-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+  .cost-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    text-align: center;
+  }
+  .cost-item .name { font-size: 0.78rem; color: var(--t2); margin-bottom: 0.4rem; }
+  .cost-item .price { font-size: 1.1rem; font-weight: 800; color: var(--t1); }
+  .cost-item .detail { font-size: 0.7rem; color: var(--t2); margin-top: 0.2rem; }
+
+  /* ── Privacy note ── */
+  .privacy {
+    background: rgba(34,197,94,0.05);
+    border: 1px solid rgba(34,197,94,0.15);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    margin: 2rem 0;
+    font-size: 0.82rem;
+    color: var(--t2);
+  }
+  .privacy .icon { font-size: 1.1rem; flex-shrink: 0; }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 0;
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--t2);
+  }
+  .footer a { color: var(--t2); text-decoration: none; }
+  .footer a:hover { color: var(--t1); }
+</style>
+</head>
+<body>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-badge">Open Source · Free to Use</div>
+    <h1>Meeting Notes AI</h1>
+    <p>Records meetings in Hinglish or English, transcribes them, and generates structured notes with action items — all on your own machine.</p>
+    <div class="hero-btns">
+      <a href="https://github.com/Mayank-AG/meeting-notes-ai" class="btn-primary">↓ Download from GitHub</a>
+      <a href="https://github.com/Mayank-AG/meeting-notes-ai#readme" class="btn-sec">View README</a>
+    </div>
+  </div>
+</section>
+
+<!-- Pipeline -->
+<section class="pipeline">
+  <div class="wrap">
+    <div class="section-label">How it works</div>
+    <div class="pipe-steps">
+      <div class="pipe-step">
+        <div class="pipe-icon">🎙️</div>
+        <div class="pipe-title">Record</div>
+        <div class="pipe-sub">Browser mic · any length · auto-chunks at 55 min</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pipe-icon">📝</div>
+        <div class="pipe-title">Transcribe</div>
+        <div class="pipe-sub">Sarvam AI · Hinglish + English natively</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pipe-icon">🤖</div>
+        <div class="pipe-title">Notes</div>
+        <div class="pipe-sub">Claude AI · structured notes + action items</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-step">
+        <div class="pipe-icon">🗂️</div>
+        <div class="pipe-title">Notion</div>
+        <div class="pipe-sub">One click · meeting page + action items DB</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="features">
+  <div class="wrap">
+    <div class="section-label">What you get</div>
+    <div class="features-grid">
+      <div class="feat">
+        <div class="feat-icon">🇮🇳</div>
+        <h3>Built for Indian meetings</h3>
+        <p>Handles Hinglish natively. Works for meetings that switch between Hindi and English mid-sentence.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">✅</div>
+        <h3>Action items table</h3>
+        <p>Every commitment, "I'll check on this", "dekh lunga" — captured in a clean table. Pushed to Notion as individual rows.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">📂</div>
+        <h3>Past meetings browser</h3>
+        <p>All meetings saved locally. Browse, re-read, or export any past meeting from the app.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">📁</div>
+        <h3>Upload audio files</h3>
+        <p>Sarvam down? Drop in a recorded .mp3 or .webm file and run the full pipeline manually.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">⚙️</div>
+        <h3>Your own context</h3>
+        <p>Tell the AI about your team, projects, and terms. Notes become tailored to how you actually work.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">🔒</div>
+        <h3>Everything stays local</h3>
+        <p>Recordings and notes saved to your machine. Your keys go only to Sarvam, Anthropic, and Notion — never anywhere else.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Setup -->
+<section class="setup">
+  <div class="wrap">
+    <div class="section-label">Get started on Mac</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Download the ZIP</h4>
+          <p>Click <strong>Download from GitHub</strong> above → <strong>Code → Download ZIP</strong>. Extract it anywhere — Downloads, Desktop, wherever.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Open Terminal · drag the folder in · run setup</h4>
+          <p>Drag the extracted folder into your Terminal window — it fills the path automatically. Press Enter, then run <code>./setup.sh</code>. Takes ~2 minutes.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>Start the app</h4>
+          <p>Run <code>./start.sh</code> — browser opens automatically. Add your API keys in the Setup screen. Done.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="privacy">
+      <span class="icon">🔒</span>
+      <span>All recordings, transcripts, and notes are saved to <code>meeting-notes-ai/meetings/</code> on your computer. Nothing is uploaded to any server — API calls go only to Sarvam AI (transcription) and Anthropic (notes generation).</span>
+    </div>
+
+    <p style="font-size:0.8rem;color:var(--t2);text-align:center">
+      Windows? <a href="https://github.com/Mayank-AG/meeting-notes-ai#setup-4-steps--4-minutes" style="color:var(--blue);text-decoration:none">See the README</a> for WSL and manual setup options.
+    </p>
+  </div>
+</section>
+
+<!-- Cost -->
+<section class="cost">
+  <div class="wrap">
+    <div class="section-label">What it costs · you bring your own keys</div>
+    <div class="cost-grid">
+      <div class="cost-item">
+        <div class="name">🔊 Sarvam AI</div>
+        <div class="price">~₹0.40 / min</div>
+        <div class="detail">1-hour meeting ≈ ₹24<br><a href="https://sarvam.ai" style="color:var(--blue);text-decoration:none;font-size:0.7rem">sarvam.ai → free account</a></div>
+      </div>
+      <div class="cost-item">
+        <div class="name">🧠 Anthropic Claude</div>
+        <div class="price">~$0.003 / meeting</div>
+        <div class="detail">≈ ₹0.25 per meeting<br><a href="https://console.anthropic.com" style="color:var(--blue);text-decoration:none;font-size:0.7rem">console.anthropic.com</a></div>
+      </div>
+      <div class="cost-item">
+        <div class="name">🗂️ Notion</div>
+        <div class="price">Free</div>
+        <div class="detail">Optional — skip if<br>you don't need Notion</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="wrap">
+    <p style="margin-bottom:0.4rem">
+      Built by <a href="https://github.com/Mayank-AG">Mayank</a> ·
+      <a href="https://github.com/Mayank-AG/meeting-notes-ai">github.com/Mayank-AG/meeting-notes-ai</a>
+    </p>
+    <p style="font-size:0.68rem;opacity:0.5">Open source · MIT · PRs welcome</p>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -72,7 +72,7 @@ def parse_action_items(notes: str) -> list:
     items = []
     try:
         # Find the All Action Items table
-        match = re.search(r'###\s*All Action Items.*?\n((?:\|.*\n)+)', notes, re.IGNORECASE)
+        match = re.search(r'###\s*All Action Items[^\n]*\n(?:\s*\n)*((?:\|[^\n]*\n?)+)', notes, re.IGNORECASE)
         if not match:
             return []
         table = match.group(1)
@@ -443,20 +443,23 @@ async def _push_meeting_to_notion(notes: str, title: str, participant: str, meet
 @app.post("/push-notion")
 async def push_to_notion(request: dict):
     if not NOTION_KEY or not NOTION_DB_ID:
-        return JSONResponse({"success": False, "error": "Add NOTION_KEY and NOTION_DB_ID to .env"}, status_code=400)
+        return JSONResponse({"success": False, "error": "Notion keys not set. Open ⚙️ Setup → API Keys to add them."}, status_code=400)
     try:
         notes = request.get("notes", "")
         # Extract participant + meeting type from Claude's notes output
         meta = parse_meeting_meta(notes)
         participant = meta["participant"]
         meeting_type = meta["meeting_type"]
-        # Build title: Deep Dives use fixed format, everything else uses Claude's ## heading
+        # Build title generically from whatever Claude extracted
         date_str = datetime.now().strftime("%d %b %Y")
-        if "deep dive" in meeting_type.lower():
-            title = f"Deep Dive | {participant}" if participant else "Deep Dive"
+        heading = next((l.lstrip("# ").strip() for l in notes.split("\n") if l.startswith("## ")), "")
+        if participant and meeting_type:
+            title = f"{meeting_type} | {participant}"
+        elif participant:
+            title = f"Meeting | {participant}"
+        elif meeting_type:
+            title = meeting_type
         else:
-            # Use Claude's ## heading — it's already topic/product-based
-            heading = next((l.lstrip("# ").strip() for l in notes.split("\n") if l.startswith("## ")), "")
             title = heading or f"Meeting — {date_str}"
         print(f"📤 Pushing to Notion: {title}")
         result = await _push_meeting_to_notion(

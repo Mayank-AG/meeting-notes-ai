@@ -49,11 +49,11 @@ When someone says "look at Wakefit", "DotPe changes pricing UX when integration 
 
 **Every output MUST begin with these exact three lines (before the title heading):**
 ```
-Participant: [first name of the person being reviewed / primary subject of the meeting]
-Type: [Deep Dive / 1:1 / Planned Meeting / Ad-hoc]
+Participant: [first name of the main person the meeting is about / being reviewed — leave blank if it's a group meeting with no single subject]
+Type: [infer from context — e.g. "Design Review", "1:1", "Sprint Planning", "Brainstorm", "Deep Dive", "Catch-up" — or use whatever was said at the start of the recording. Leave blank if unclear.]
 Summary: [1–2 sentences on what was covered — key topics, main decisions, notable outcomes]
 ```
-Each field is on its own line. Infer Participant and Type from the transcript. If you cannot determine either, leave that field blank (e.g. `Participant: ` with nothing after the colon). Never write "Unknown". The Summary must reflect the actual substance of the call — not the participant name or meeting type, those are already captured above.
+Each field is on its own line. Infer Participant and Type from the transcript. **Tip for users:** Say the meeting type out loud at the start of a recording ("This is a design review for the checkout flow") — Claude will pick it up. If you cannot determine a field, leave it blank (e.g. `Type: ` with nothing after the colon). Never write "Unknown". The Summary must reflect the actual substance of the call — not the participant name or meeting type, those are already captured above.
 
 ```
 ## [Title — infer from content]
@@ -93,8 +93,8 @@ Organize by project/topic. For each, capture what's relevant (skip sections that
 
 ---
 
-## YOUR CONTEXT
-<!-- ✏️  FILL THIS IN — the AI reads it before every meeting. The more detail you add, the better the notes. -->
+## YOUR CONTEXT  *(optional — but the more you fill in, the better the notes)*
+<!-- ✏️  Edit this section with your team and company details. If you skip it entirely, the tool still works — Claude generates good notes without context, just without team-specific attribution, project names, or domain terms. -->
 
 ### Company
 <!-- Replace this with 2–3 sentences about what your company does and who your customers are -->

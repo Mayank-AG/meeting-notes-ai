@@ -34,8 +34,9 @@
   .mic{width:100px;height:100px;border-radius:50%;border:none;cursor:pointer;display:flex;
     align-items:center;justify-content:center;transition:all 0.3s;position:relative;
     background:linear-gradient(135deg,#3b82f6,#6366f1);box-shadow:0 0 25px rgba(59,130,246,0.15)}
-  .mic:hover{transform:scale(1.05)}
+  .mic:hover:not(.disabled){transform:scale(1.05)}
   .mic.on{background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 0 25px rgba(239,68,68,0.2)}
+  .mic.disabled{background:var(--s2);box-shadow:none;cursor:not-allowed;opacity:0.5}
   .mic svg{width:40px;height:40px;fill:white}
   .mic .pulse{position:absolute;inset:-8px;border-radius:50%;border:2px solid var(--red);opacity:0}
   .mic.on .pulse{animation:pulse 1.5s ease-out infinite}
@@ -88,8 +89,9 @@
 
   /* ── Setup Panel ──────────────────────────────────────────── */
   .setup-panel{padding-top:0.5rem}
-  .setup-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+  .setup-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.5rem}
   .setup-nav h2{font-size:1rem;font-weight:700}
+  .setup-nav-right{display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap}
   .setup-tabs{display:flex;gap:4px;background:var(--s2);border-radius:8px;padding:3px}
   .stab{padding:0.35rem 1rem;border-radius:6px;border:none;background:transparent;color:var(--t2);
     font-family:inherit;font-size:0.78rem;font-weight:500;cursor:pointer;transition:all 0.2s}
@@ -176,6 +178,7 @@
     </button>
     <div class="timer" id="tmr" style="display:none">00:00</div>
     <div class="lbl" id="lbl">Tap to start recording</div>
+    <div class="lbl" id="lbl-keys" style="display:none;color:var(--red)">⚠ Add Sarvam + Anthropic keys to start</div>
     <div class="chunk-info" id="ci" style="display:none"></div>
     <div class="upload" onclick="document.getElementById('fu').click()">
       📁 Or upload existing audio files (multiple OK)
@@ -238,7 +241,7 @@
   <div class="setup-panel">
     <div class="setup-nav">
       <h2>⚙️ Setup</h2>
-      <div style="display:flex;gap:0.5rem;align-items:center">
+      <div class="setup-nav-right">
         <div class="setup-tabs">
           <button class="stab a" id="stab-keys" onclick="switchSetupTab('keys')">🔑 API Keys</button>
           <button class="stab" id="stab-ctx" onclick="switchSetupTab('ctx')">📝 Context</button>
@@ -380,16 +383,25 @@ async function init(){
     const pill=document.getElementById('setup-pill');
     const gear=document.getElementById('gear-btn');
     gear.style.display='';
+    const mic=document.getElementById('mic');
+    const lblKeys=document.getElementById('lbl-keys');
+    const lbl=document.getElementById('lbl');
     if(!s.ready){
       pill.textContent='⚠ Setup required';
       pill.className='setup-pill missing';
       pill.style.display='';
+      mic.classList.add('disabled');
+      lbl.style.display='none';
+      lblKeys.style.display='';
       // Auto-open setup for fresh installs
       openSetup();
     } else {
       pill.textContent='✅ Ready';
       pill.className='setup-pill ok';
       pill.style.display='';
+      mic.classList.remove('disabled');
+      lbl.style.display='';
+      lblKeys.style.display='none';
     }
     // Config for notion button
     const cr=await fetch('/config');config=await cr.json();
@@ -402,6 +414,7 @@ function show(v){['rec','past','proc','res','err','setup'].forEach(x=>document.g
 
 // ─── Recording ───────────────────────────────────────────────
 async function toggle(){
+  if(document.getElementById('mic').classList.contains('disabled')){openSetup();return;}
   if(!rec||rec.state==='inactive')await startRec();else stopRec();
 }
 
@@ -668,6 +681,8 @@ async function saveKeys(){
       await loadMaskedKeys();
       // Clear any plaintext from inputs (security)
       [sarvam,anthropic,notion,notionDb].forEach(i=>{if(!i.readOnly)i.value=''});
+      // Re-check setup status so mic enables if both required keys are now set
+      await init();
     }else{toast('❌ Save failed')}
   }catch(e){toast('❌ '+e.message)}
   finally{btn.disabled=false;btn.textContent='Save Keys'}
